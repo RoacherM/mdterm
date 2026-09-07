@@ -27,6 +27,21 @@ Try it without installing:
 
 Uninstall: `rm ~/.local/bin/mdterm` and delete the clone.
 
+### Let an agent install it
+
+Paste this into any coding agent (Claude Code, Codex, Cursor, ...) that runs on the machine where Yazi runs:
+
+```text
+Install mdterm, a Markdown previewer and pager for Yazi, from https://github.com/RoacherM/mdterm:
+1. Make sure glow is installed (brew install glow on macOS). python3 and less must exist; on Linux install them with the system package manager.
+2. git clone the repo into ~/.local/share/mdterm (or update it if present) and run ./install.sh there. It symlinks bin/mdterm into ~/.local/bin; make sure ~/.local/bin is on PATH in my shell rc.
+3. Run `ya pkg add yazi-rs/plugins:piper` to install the piper plugin.
+4. Merge the blocks in share/yazi.toml into ~/.config/yazi/yazi.toml: create the file from share/yazi.toml if it does not exist, otherwise append the two [[plugin.prepend_previewers]] blocks and the [opener] / [open] entries to the matching sections without duplicating any I already have.
+5. Verify with `mdterm preview README.md --width 48` in the clone (it must print rendered ANSI text, nothing on stderr) and `yazi --version`.
+6. Tell me to restart Yazi, and list every file you changed.
+Optional: if I ask for mermaid box art, put mmd2txt on PATH too.
+```
+
 ## Yazi
 
 1. Run `./install.sh` so that `mdterm` is on PATH. Yazi runs it by name.
