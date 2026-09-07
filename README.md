@@ -112,6 +112,7 @@ Seen while walking the steps above on macOS with Yazi 26.9.1, piper 4dc7f1b, glo
 - Paths with spaces or CJK are fine; Yazi quotes `%s` itself.
 - The pager runs `less -S`: lines wider than the window are cut, not wrapped. Scroll right with `→` (or the mouse), or type `-S` inside less to toggle wrapping. This is deliberate, wrapping is what breaks box drawing.
 - Resizing the window restarts `less` from the top of the file; less has no way to hand back the current position.
+- Ghostty (with its system scrollbar showing) is one column wider on the alternate screen than on the main screen, because the scrollbar disappears there. If `less` switched screens itself, every start or exit would look like a resize to the poll loop and the pager would restart in a loop, flashing on each `q`. So `mdterm` holds the alternate screen for the whole session and runs `less -X`.
 - Colours assume a dark background. On a light terminal the grey text is faint; piper passes `$t` (`dark` / `light`) but mdterm does not read it yet.
 - Yazi 26 openers take `%s`; Yazi 0.4 and earlier used `"$@"`. The snippet is for 26.
 

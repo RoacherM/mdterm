@@ -45,33 +45,54 @@ def render_page(path: Path, cols: int) -> str:
     return splice(dump(markdown, width), blocks)
 
 
+ALT_ON = "\x1b[?1049h"
+ALT_OFF = "\x1b[?1049l"
+CLEAR = "\x1b[2J\x1b[H"
+
+
 def cmd_pager(path: Path) -> int:
-    """Render at current width, open less; restart when the terminal is resized."""
-    less_cmd = ["less", "-R", "-S"]
+    """Render at current width, open less; restart when the terminal is resized.
+
+    mdterm holds the alternate screen itself and runs less with -X so that less
+    never switches screens. Ghostty changes the column count when the screen
+    switches (its scrollbar disappears on the alternate screen), and a less
+    restart that switched screens would read as yet another resize, forever.
+    """
+    less_cmd = ["less", "-R", "-S", "-X"]
     if _less_has_mouse():
         less_cmd.append("--mouse")
-    while True:
-        cols = _cols()
-        with tempfile.NamedTemporaryFile(
-            "w", prefix="mdterm.", suffix=".txt", delete=False, encoding="utf-8"
-        ) as fh:
-            fh.write(render_page(path, cols))
-            out = Path(fh.name)
-        proc = subprocess.Popen(less_cmd + [str(out)])
-        resized = False
-        try:
-            while proc.poll() is None:
-                time.sleep(0.25)
-                if _cols() != cols:
-                    resized = True
-                    proc.send_signal(signal.SIGTERM)
-                    break
-            status = proc.wait()
-        finally:
-            out.unlink(missing_ok=True)
-        if resized:
-            continue
-        return 0 if status in (0, 15, -15) else status
+    tty = sys.stdout
+    tty.write(ALT_ON)
+    tty.flush()
+    time.sleep(0.1)  # the terminal may still be applying the screen switch
+    try:
+        while True:
+            cols = _cols()
+            with tempfile.NamedTemporaryFile(
+                "w", prefix="mdterm.", suffix=".txt", delete=False, encoding="utf-8"
+            ) as fh:
+                fh.write(render_page(path, cols))
+                out = Path(fh.name)
+            tty.write(CLEAR)
+            tty.flush()
+            proc = subprocess.Popen(less_cmd + [str(out)])
+            resized = False
+            try:
+                while proc.poll() is None:
+                    time.sleep(0.25)
+                    if _cols() != cols:
+                        resized = True
+                        proc.send_signal(signal.SIGTERM)
+                        break
+                status = proc.wait()
+            finally:
+                out.unlink(missing_ok=True)
+            if resized:
+                continue
+            return 0 if status in (0, 15, -15) else status
+    finally:
+        tty.write(ALT_OFF)
+        tty.flush()
 
 
 def _less_has_mouse() -> bool:
