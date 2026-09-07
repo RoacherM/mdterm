@@ -1,79 +1,42 @@
 # mdterm
 
-Terminal Markdown with two render paths: a **narrow pane** (Yazi preview) and a **full-width pager** (Enter). Do not force both through one renderer.
+Markdown for the terminal, rendered two ways:
 
-Yazi only picks the file. Width, mermaid, and ASCII diagrams are this repo's job.
+- `mdterm preview FILE --width N`: a narrow pane (Yazi's preview). Mermaid and over-wide ASCII diagrams become a one-line placeholder; long files are cut.
+- `mdterm pager FILE`: full width in `less`. Mermaid becomes box art, wide diagrams scroll sideways, and a window resize re-renders at the new width.
 
-The installer never writes `~/.config/yazi` or glow's config. You paste the Yazi snippet yourself.
-
-## Why two paths
-
-Yazi's right pane is ~40 columns. A 60-column box diagram or mermaid graph wraps, the box lines break, and glow paints `─│` as syntax operators (pink).
-
-Full screen can render at `tput cols`, but `glow file.md` opens its own TUI whenever stdin is a TTY. The `notty` style draws invisible text on a dark background. The TUI also will not recompute mermaid when you resize.
-
-So:
-
-| Entry | Width | Diagrams | Output |
-| --- | --- | --- | --- |
-| `preview` | caller (`--width`) | mermaid / over-wide ASCII → placeholder | glow dump to stdout (piper) |
-| `pager` | current terminal columns | mermaid → box art at that width; any fence wider than the terminal bypasses glow | glow CLI (stdin, no TTY) → `less -R -S`; resize re-renders |
-
-Glow only ever sees Markdown on stdin and writes ANSI on stdout. Glow hard-wraps code lines at `-w`, which breaks box drawing, so the pager pulls mermaid art and over-wide fences out before glow runs and splices them back into the ANSI afterwards; `less -S` then scrolls them sideways. Fence detection follows CommonMark (backtick or tilde, indented inside lists) and measures width in terminal cells, so CJK box art counts double.
+Glow does the Markdown rendering. Fences that glow would wrap (mermaid art, box drawing wider than the window) are taken out before glow runs and spliced back afterwards. Fence detection follows CommonMark and measures width in terminal cells, so CJK box art counts double.
 
 ## Install
 
-Dependencies:
-
 ```bash
-brew install glow less
-# python3 is already on macOS
-# optional, for mermaid → box art: put `mmd2txt` on PATH
-```
-
-Clone. You can run from the tree with no PATH change:
-
-```bash
+brew install glow           # python3 and less ship with macOS
 git clone https://github.com/RoacherM/mdterm.git
 cd mdterm
-./bin/mdterm preview README.md --width 48
-./bin/mdterm pager README.md
+./install.sh                # symlinks bin/mdterm into ~/.local/bin, nothing else
 ```
 
-To put `mdterm` on PATH (the only file the installer touches):
+Optional: put `mmd2txt` (the grok-mermaid CLI) on PATH and the pager draws mermaid fences as box art. Flowchart, sequence, state, class and ER are supported; without it the pager shows the mermaid source.
+
+Try it without installing:
 
 ```bash
-./install.sh
+./bin/mdterm preview example.md --width 48
+./bin/mdterm pager example.md
 ```
-
-`install.sh` checks `python3` / `glow` / `less`, then:
-
-```text
-ln -sfn <repo>/bin/mdterm ~/.local/bin/mdterm
-```
-
-It does **not** edit `~/.config/yazi` or glow's config. If `~/.local/bin` is missing from `PATH`, the script prints the `export` line to add.
 
 Uninstall: `rm ~/.local/bin/mdterm` and delete the clone.
 
 ## Yazi
 
-You paste this. The installer will not. Three steps, in order:
-
-1. `./install.sh` (above), so `mdterm` is on PATH. Yazi runs `mdterm` by name; a bare clone is not enough.
+1. Run `./install.sh` so that `mdterm` is on PATH. Yazi runs it by name.
 2. Install piper, the plugin that pipes a command's stdout into the preview pane:
 
    ```bash
    ya pkg add yazi-rs/plugins:piper
    ```
 
-3. Put the snippet below into `~/.config/yazi/yazi.toml`. If that file does not exist yet, copy it whole:
-
-   ```bash
-   cp share/yazi.toml ~/.config/yazi/yazi.toml
-   ```
-
-   If it exists, append the two `[[plugin.prepend_previewers]]` blocks and the `[opener]` / `[open]` entries to the matching sections:
+3. Add the blocks from `share/yazi.toml` to `~/.config/yazi/yazi.toml` (copy the file whole if you have none):
 
 ```toml
 [[plugin.prepend_previewers]]
@@ -96,47 +59,32 @@ prepend_rules = [
 ]
 ```
 
-Yazi 26 openers take `%s`, not `"$@"`. `$w` is the preview pane width (piper sets it). Quit Yazi (`q`) and start it again after editing the config.
+Restart Yazi. Hovering a `.md` file shows the rendered text in the right pane; Enter opens the pager, `q` returns to Yazi; `o` offers `edit`.
 
-Check it works: hover any `.md` in Yazi. The right pane shows rendered text, with `〔流程图：回车全屏查看〕` where a mermaid fence was. Press Enter: `less` opens full width; `q` returns to Yazi. If the pane shows raw Markdown instead, `mdterm` is not on PATH or the previewer block is missing; run `mdterm preview README.md --width 48` in a shell to tell the two apart.
+## Behaviour to know
 
-In the pane: mermaid and over-wide ASCII become `〔流程图/示意图：回车全屏查看〕`, link URLs are hidden (only the link text shows), and files longer than 1500 lines are cut with `〔已截断〕`. Enter opens `less` (not glow TUI). `q` leaves the pager. Resize the window and the pager re-renders at the new width.
+- The pager runs `less -S`: lines wider than the window are cut, not wrapped. Scroll right with `→`, or type `-S` inside less to toggle wrapping.
+- Resizing the window restarts `less` from the top of the file.
+- Colours assume a dark background.
 
-## Pitfalls
-
-Seen while walking the steps above on macOS with Yazi 26.9.1, piper 4dc7f1b, glow 3.0.0, less 668, ghostty (dark theme).
-
-- `ya pkg add` creates only `package.toml` and `plugins/`. There is no `yazi.toml` until you make one; nothing tells you that. Step 3 above covers it.
-- piper shows the command's **stderr instead of the preview** whenever anything is written there. So `sh: mdterm: command not found` in the pane means the shell that launched Yazi has no `~/.local/bin` on its PATH (a Yazi started from a launcher or app can have a shorter PATH than your interactive shell). `mdterm: glow is not on PATH` means glow is missing. mdterm keeps stderr silent otherwise, so any text there is a real error.
-- Enter opens mdterm; `o` shows the menu with `edit`. That is what `use = [ "mdterm", "edit" ]` means. Swap the order if you want Enter to edit.
-- Paths with spaces or CJK are fine; Yazi quotes `%s` itself.
-- The pager runs `less -S`: lines wider than the window are cut, not wrapped. Scroll right with `→` (or the mouse), or type `-S` inside less to toggle wrapping. This is deliberate, wrapping is what breaks box drawing.
-- Resizing the window restarts `less` from the top of the file; less has no way to hand back the current position.
-- Ghostty (with its system scrollbar showing) is one column wider on the alternate screen than on the main screen, because the scrollbar disappears there. If `less` switched screens itself, every start or exit would look like a resize to the poll loop and the pager would restart in a loop, flashing on each `q`. So `mdterm` holds the alternate screen for the whole session and runs `less -X`.
-- Colours assume a dark background. On a light terminal the grey text is faint; piper passes `$t` (`dark` / `light`) but mdterm does not read it yet.
-- Yazi 26 openers take `%s`; Yazi 0.4 and earlier used `"$@"`. The snippet is for 26.
+If the pane shows raw Markdown, an error message, or the pager flickers, see [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Layout
 
 ```
+bin/mdterm            # launcher; repo-relative
 mdterm/
-  bin/mdterm          # launcher; repo-relative, no hardcoded home
-  mdterm/
-    fences.py         # find fences (CommonMark), placeholders, mmd2txt batch, splice
-    glow.py           # glow CLI dump, monochrome style; errors are raised, never hidden
-    cli.py            # preview | pager
-  share/glow-mono.json
-  share/yazi.toml     # snippet to paste
-  install.sh
-  tests/test_fences.py
+  fences.py           # find fences (CommonMark), placeholders, mmd2txt batch, splice
+  glow.py             # glow CLI dump; errors are raised, never hidden
+  cli.py              # preview | pager
+share/glow-mono.json  # pager style
+share/glow-pane.json  # preview style
+share/yazi.toml       # snippet to paste
+install.sh
+tests/test_fences.py
+docs/troubleshooting.md
 ```
 
 ```bash
 python3 -m unittest discover -s tests
 ```
-
-## Optional mermaid
-
-`mmd2txt` on `PATH` turns ` ```mermaid ` fences into box art in **pager** mode: all diagrams in a file go through one `mmd2txt --md` call on stdin, and the art is spliced in after glow, so your own ` ```text ` fences are never touched. Without it, pager shows the mermaid source; preview still replaces the fence with a placeholder.
-
-`mmd2txt` is the grok-mermaid CLI (flowchart / sequence / state / class / ER). Pie and gantt are unsupported.

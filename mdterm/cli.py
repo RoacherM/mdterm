@@ -54,9 +54,10 @@ def cmd_pager(path: Path) -> int:
     """Render at current width, open less; restart when the terminal is resized.
 
     mdterm holds the alternate screen itself and runs less with -X so that less
-    never switches screens. Ghostty changes the column count when the screen
-    switches (its scrollbar disappears on the alternate screen), and a less
-    restart that switched screens would read as yet another resize, forever.
+    never switches screens. Some terminal multiplexers (herdr panes) change the
+    column count when the screen switches, because the pane scrollbar goes away
+    on the alternate screen; a less restart that switched screens would then
+    read as yet another resize, forever.
     """
     less_cmd = ["less", "-R", "-S", "-X"]
     if _less_has_mouse():

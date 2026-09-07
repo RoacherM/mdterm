@@ -16,7 +16,7 @@ need() {
 echo "==> checking dependencies"
 need python3 "macOS: already present, or brew install python"
 need glow "brew install glow"
-need less "should be on the system; GNU less (brew install less) enables --mouse"
+need less "ships with macOS"
 if ! command -v mmd2txt >/dev/null 2>&1; then
   echo "optional: mmd2txt not found (mermaid stays as source in pager)"
   echo "  put mmd2txt on PATH if you want mermaid → box art"
