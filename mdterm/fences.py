@@ -8,6 +8,7 @@ glow, because glow hard-wraps code lines and breaks box drawing.
 from __future__ import annotations
 
 import re
+import secrets
 import subprocess
 import unicodedata
 from dataclasses import dataclass
@@ -16,10 +17,12 @@ from dataclasses import dataclass
 # (the indent is the list item's content offset when the fence sits in a list).
 OPEN = re.compile(r"^(?P<indent>[ \t]*)(?P<fence>`{3,}|~{3,})(?P<info>.*)$")
 
-BOX = set("┌┐└┘├┤┬┴┼─│╭╮╰╯►▼▲◀■□═║╔╗╚╝▬|")
+# Box drawing only: a Markdown table or a shell pipeline is full of "|" and is not art.
+BOX = set("┌┐└┘├┤┬┴┼─│╭╮╰╯►▼▲◀■□═║╔╗╚╝▬")
 MERMAID_PLACE = "> 〔流程图：回车全屏查看〕"
 ART_PLACE = "> 〔示意图：回车全屏查看〕"
-TOKEN = "MDTERMBLOCK"
+# Fresh per process so that a document containing the token cannot be mistaken for one.
+TOKEN = f"MDTERMBLK{secrets.token_hex(4)}_"
 SEP = "MDTERMSEP"
 
 
@@ -69,9 +72,9 @@ def is_wide_art(body: list[str], budget: int) -> bool:
     if max((display_width(line) for line in body), default=0) <= budget:
         return False
     text = "\n".join(body)
-    if sum(ch in BOX for ch in text) >= 6:
-        return True
-    return text.count("─") >= 8 or "--------" in text
+    # Unicode box drawing, or ASCII boxes with "+" corners. A run of dashes
+    # alone is a Markdown table separator as often as it is art.
+    return sum(ch in BOX for ch in text) >= 6 or "+--" in text or "--+" in text
 
 
 def collapse_for_pane(text: str, width: int) -> str:
@@ -122,7 +125,7 @@ def prepare_for_pager(
 ) -> tuple[str, list[list[str]]]:
     """Markdown for glow plus the blocks glow must not touch.
 
-    Each block is replaced by a `MDTERMBLOCK<n>` paragraph; `splice` puts the
+    Each block is replaced by a `{TOKEN}<n>` paragraph; `splice` puts the
     raw lines back after glow has rendered the rest.
     """
     lines = text.splitlines()
@@ -148,7 +151,7 @@ def prepare_for_pager(
 
 
 ANSI = re.compile(r"\x1b\[[0-9;]*m|\x1b\]8;[^\x07]*\x07")
-TOKEN_RE = re.compile(rf"{TOKEN}(\d+)")
+TOKEN_RE = re.compile(re.escape(TOKEN) + r"(\d+)")
 
 
 def splice(rendered: str, blocks: list[list[str]]) -> str:
@@ -157,7 +160,7 @@ def splice(rendered: str, blocks: list[list[str]]) -> str:
     for line in rendered.splitlines():
         plain = ANSI.sub("", line)
         m = TOKEN_RE.search(plain)
-        if not m:
+        if not m or int(m.group(1)) >= len(blocks):
             out.append(line)
             continue
         raw = blocks[int(m.group(1))]

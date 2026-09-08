@@ -96,7 +96,7 @@ share/glow-mono.json  # pager style
 share/glow-pane.json  # preview style
 share/yazi.toml       # snippet to paste
 install.sh
-tests/test_fences.py
+tests/                # unit tests; tests/cases/ holds one Markdown file per shape that once rendered wrong
 docs/troubleshooting.md
 ```
 

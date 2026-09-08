@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import shutil
-import signal
 import subprocess
 import sys
 import tempfile
@@ -65,35 +64,47 @@ def cmd_pager(path: Path) -> int:
     tty = sys.stdout
     tty.write(ALT_ON)
     tty.flush()
-    time.sleep(0.1)  # the terminal may still be applying the screen switch
     try:
+        time.sleep(0.1)  # the terminal may still be applying the screen switch
         while True:
             cols = _cols()
+            page = render_page(path, cols)
             with tempfile.NamedTemporaryFile(
                 "w", prefix="mdterm.", suffix=".txt", delete=False, encoding="utf-8"
             ) as fh:
-                fh.write(render_page(path, cols))
-                out = Path(fh.name)
-            tty.write(CLEAR)
-            tty.flush()
-            proc = subprocess.Popen(less_cmd + [str(out)])
-            resized = False
+                fh.write(page)
+            out = Path(fh.name)
             try:
-                while proc.poll() is None:
-                    time.sleep(0.25)
-                    if _cols() != cols:
-                        resized = True
-                        proc.send_signal(signal.SIGTERM)
-                        break
-                status = proc.wait()
+                tty.write(CLEAR)
+                tty.flush()
+                proc = subprocess.Popen(less_cmd + [str(out)])
+                status = _wait_unless_resized(proc, cols)
             finally:
                 out.unlink(missing_ok=True)
-            if resized:
+            if status is None:
                 continue
             return 0 if status in (0, 15, -15) else status
     finally:
         tty.write(ALT_OFF)
         tty.flush()
+
+
+def _wait_unless_resized(proc: subprocess.Popen, cols: int) -> int | None:
+    """Exit status of less, or None once it was killed because the width changed."""
+    try:
+        while True:
+            try:
+                return proc.wait(timeout=0.25)
+            except subprocess.TimeoutExpired:
+                pass
+            if _cols() != cols:
+                proc.terminate()
+                proc.wait()
+                return None
+    except KeyboardInterrupt:
+        proc.terminate()
+        proc.wait()
+        raise
 
 
 def _less_has_mouse() -> bool:
@@ -131,6 +142,8 @@ def main(argv: list[str] | None = None) -> int:
     except (FileNotFoundError, RuntimeError) as err:
         print(f"mdterm: {err}", file=sys.stderr)
         return 1
+    except KeyboardInterrupt:
+        return 130
 
 
 if __name__ == "__main__":

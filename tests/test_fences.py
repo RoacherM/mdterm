@@ -5,6 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from mdterm.fences import (
+    TOKEN,
     collapse_for_pane,
     display_width,
     prepare_for_pager,
@@ -61,6 +62,12 @@ class CollapseTests(unittest.TestCase):
         out = collapse_for_pane(src, 40)
         self.assertIn("  > 〔示意图", out)
 
+    def test_table_in_fence_is_not_art(self):
+        table = "| " + "a" * 30 + " | " + "b" * 30 + " |\n| --- | --- |\n| x | y |\n"
+        out = collapse_for_pane(f"```\n{table}```\n", 40)
+        self.assertNotIn("示意图", out)
+        self.assertIn("aaaa", out)
+
     def test_narrow_code_kept(self):
         out = collapse_for_pane("# T\n\n```\necho hi\n```\n", 80)
         self.assertIn("echo hi", out)
@@ -71,16 +78,19 @@ class PagerTests(unittest.TestCase):
         src = f"a\n\n```\n{WIDE_BOX}```\n\n```text\n<repo>/x\n```\n"
         markdown, blocks = prepare_for_pager(src, 60, None)
         self.assertNotIn("hello", markdown)
-        self.assertIn("MDTERMBLOCK0", markdown)
+        self.assertIn(f"{TOKEN}0", markdown)
         self.assertIn("```text\n<repo>/x\n```", markdown)  # narrow: glow keeps it
         self.assertEqual(len(blocks), 1)
-        rendered = " a\n\n \x1b[38;5;252mMDTERMBLOCK0\x1b[m   \n"
+        rendered = f" a\n\n \x1b[38;5;252m{TOKEN}0\x1b[m   \n"
         out = splice(rendered, blocks)
         self.assertIn(" │ hello", out)
-        self.assertNotIn("MDTERMBLOCK", out)
+        self.assertNotIn(TOKEN, out)
+
+    def test_splice_keeps_unknown_index(self):
+        self.assertEqual(splice(f"{TOKEN}7\n", []), f"{TOKEN}7\n")
 
     def test_splice_token_glued_to_list_item(self):
-        out = splice("   • item MDTERMBLOCK0\n", [["┌┐", "└┘"]])
+        out = splice(f"   • item {TOKEN}0\n", [["┌┐", "└┘"]])
         self.assertEqual(out, "   • item\n   ┌┐\n   └┘\n")
 
     @unittest.skipUnless(shutil.which("mmd2txt"), "mmd2txt not on PATH")
