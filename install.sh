@@ -19,7 +19,7 @@ need glow "brew install glow"
 need less "ships with macOS"
 if ! command -v mmd2txt >/dev/null 2>&1; then
   echo "optional: mmd2txt not found (mermaid stays as source in pager)"
-  echo "  put mmd2txt on PATH if you want mermaid → box art"
+  echo "  npm install -g github:RoacherM/mmd2txt   # mermaid → box art, needs Node 20+"
 fi
 
 mkdir -p "$BIN"

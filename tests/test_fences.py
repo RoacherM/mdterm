@@ -96,13 +96,13 @@ class PagerTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which("mmd2txt"), "mmd2txt not on PATH")
     def test_mermaid_batch_keeps_order_and_unsupported(self):
         arts = render_mermaid(
-            [["flowchart LR", "A-->B"], ["pie", '"a": 1'], ["flowchart LR", "C-->D"]],
+            [["flowchart LR", "A-->B"], ["gantt", "title x"], ["flowchart LR", "C-->D"]],
             80,
             shutil.which("mmd2txt"),
         )
         self.assertEqual(len(arts), 3)
         self.assertTrue(any("A" in ln for ln in arts[0]))
-        self.assertTrue(any("pie" in ln for ln in arts[1]))
+        self.assertTrue(any("gantt" in ln for ln in arts[1]))
         self.assertTrue(any("D" in ln for ln in arts[2]))
         self.assertFalse(any(ln.startswith("```") for art in arts for ln in art))
 

@@ -16,7 +16,7 @@ cd mdterm
 ./install.sh                # symlinks bin/mdterm into ~/.local/bin, nothing else
 ```
 
-Optional: put `mmd2txt` (the grok-mermaid CLI) on PATH and the pager draws mermaid fences as box art. Flowchart, sequence, state, class and ER are supported; without it the pager shows the mermaid source.
+Optional: install [mmd2txt](https://github.com/RoacherM/mmd2txt) (`npm install -g github:RoacherM/mmd2txt`, Node 20+) and the pager draws mermaid fences as box art. Without it the pager shows the mermaid source.
 
 Try it without installing:
 
@@ -39,7 +39,7 @@ Install mdterm, a Markdown previewer and pager for Yazi, from https://github.com
 4. Merge the blocks in share/yazi.toml into ~/.config/yazi/yazi.toml: create the file from share/yazi.toml if it does not exist, otherwise append the two [[plugin.prepend_previewers]] blocks and the [opener] / [open] entries to the matching sections without duplicating any I already have.
 5. Verify with `mdterm preview README.md --width 48` in the clone (it must print rendered ANSI text, nothing on stderr) and `yazi --version`.
 6. Tell me to restart Yazi, and list every file you changed.
-Optional: if I ask for mermaid box art, put mmd2txt on PATH too.
+Optional: if I ask for mermaid box art, run `npm install -g github:RoacherM/mmd2txt` too (needs Node 20+).
 ```
 
 ## Yazi
